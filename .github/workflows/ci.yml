@@ -12,6 +12,10 @@ permissions:
 jobs:
   test-and-scan:
     runs-on: ubuntu-latest
+    env:
+      WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
+      WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
     steps:
       - name: Checkout
@@ -20,7 +24,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: "1.22"
 
       - name: Test
         run: go test ./...
@@ -29,31 +33,31 @@ jobs:
         run: go build -o bin/gcpsec ./cmd/gcpsec
 
       - name: Auth to Google Cloud
-        if: ${{ secrets.WIF_PROVIDER != '' && secrets.WIF_SERVICE_ACCOUNT != '' && secrets.GCP_PROJECT_ID != '' }}
+        if: ${{ env.WIF_PROVIDER != '' && env.WIF_SERVICE_ACCOUNT != '' && env.GCP_PROJECT_ID != '' }}
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
 
       - name: Setup gcloud
-        if: ${{ secrets.WIF_PROVIDER != '' && secrets.WIF_SERVICE_ACCOUNT != '' && secrets.GCP_PROJECT_ID != '' }}
+        if: ${{ env.WIF_PROVIDER != '' && env.WIF_SERVICE_ACCOUNT != '' && env.GCP_PROJECT_ID != '' }}
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Run gcpsec scan
-        if: ${{ secrets.WIF_PROVIDER != '' && secrets.WIF_SERVICE_ACCOUNT != '' && secrets.GCP_PROJECT_ID != '' }}
+        if: ${{ env.WIF_PROVIDER != '' && env.WIF_SERVICE_ACCOUNT != '' && env.GCP_PROJECT_ID != '' }}
         run: |
           ./bin/gcpsec scan \
-            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --project "$GCP_PROJECT_ID" \
             --repo . \
             --out .gcpsec/scan.json \
             --stdout-format summary
 
       - name: Generate SARIF
-        if: ${{ secrets.WIF_PROVIDER != '' && secrets.WIF_SERVICE_ACCOUNT != '' && secrets.GCP_PROJECT_ID != '' }}
+        if: ${{ env.WIF_PROVIDER != '' && env.WIF_SERVICE_ACCOUNT != '' && env.GCP_PROJECT_ID != '' }}
         run: ./bin/gcpsec report --from .gcpsec/scan.json --format sarif --out .gcpsec/results.sarif
 
       - name: Upload SARIF
-        if: ${{ secrets.WIF_PROVIDER != '' && secrets.WIF_SERVICE_ACCOUNT != '' && secrets.GCP_PROJECT_ID != '' }}
+        if: ${{ env.WIF_PROVIDER != '' && env.WIF_SERVICE_ACCOUNT != '' && env.GCP_PROJECT_ID != '' }}
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: .gcpsec/results.sarif
